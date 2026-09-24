@@ -1,0 +1,30 @@
+name: build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ekstrak zip
+        run: unzip -q "*.zip"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14
+      - name: Isi versi Fabric otomatis
+        working-directory: amba
+        run: |
+          FAPI=$(curl -s https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml | grep -o '<version>[^<]*+1.21.11</version>' | tail -1 | sed 's/<[^>]*>//g')
+          LOADER=$(curl -s https://meta.fabricmc.net/v2/versions/loader | python3 -c "import sys,json; print([x['version'] for x in json.load(sys.stdin) if x['stable']][0])")
+          sed -i "s/^fabric_version=.*/fabric_version=$FAPI/; s/^loader_version=.*/loader_version=$LOADER/" gradle.properties
+          cat gradle.properties
+      - name: Build
+        working-directory: amba
+        run: gradle build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amba-client-jar
+          path: amba/build/libs/*.jar
